@@ -106,7 +106,7 @@ export function PlaygroundInterface() {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
-      if (input.trim() && status !== "streaming") {
+      if (input?.trim() && status !== "streaming") {
         handleSubmit(e as unknown as React.FormEvent)
       }
     }
@@ -262,7 +262,7 @@ export function PlaygroundInterface() {
                     <Square className="w-4 h-4" />
                   </Button>
                 ) : (
-                  <Button type="submit" size="icon" disabled={!input.trim() || !selectedAgentId}>
+                  <Button type="submit" size="icon" disabled={!input?.trim() || !selectedAgentId}>
                     <Send className="w-4 h-4" />
                   </Button>
                 )}

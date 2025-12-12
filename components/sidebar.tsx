@@ -3,12 +3,13 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Bot, Play, History, Settings, Wrench, ChevronLeft, ChevronRight } from "lucide-react"
+import { Bot, Play, History, Settings, Wrench, ChevronLeft, ChevronRight, Workflow } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 
 const navItems = [
   { href: "/", label: "Agents", icon: Bot },
+  { href: "/builder", label: "Builder", icon: Workflow },
   { href: "/playground", label: "Playground", icon: Play },
   { href: "/runs", label: "Runs", icon: History },
   { href: "/tools", label: "Tools", icon: Wrench },
