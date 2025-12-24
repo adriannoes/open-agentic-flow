@@ -19,84 +19,80 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create Supabase client
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
 
-    // Test 1: Check if we can connect
-    const { error: connectionError } = await supabase.from("profiles").select("count").limit(0)
+    const requiredTables = [
+      "profiles",
+      "workspaces",
+      "workspace_members",
+      "agents",
+      "workflows",
+      "workflow_nodes",
+      "workflow_connections",
+      "workflow_executions",
+      "execution_logs",
+      "runs",
+      "connectors",
+      "connections",
+      "mcp_servers",
+    ]
 
-    if (connectionError) {
-      // Check if it's a table not found error (meaning DB is connected but not set up)
-      if (connectionError.message.includes("relation") && connectionError.message.includes("does not exist")) {
-        return NextResponse.json({
-          success: false,
-          message: "Database connected but tables not created. Please run the SQL setup script.",
-          details: {
-            error: connectionError.message,
-            hint: "Go to SQL Editor in Supabase and run the script from SUPABASE_SETUP.md",
-          },
-        })
+    const tablesFound: string[] = []
+    const tablesMissing: string[] = []
+
+    // Test each table
+    for (const table of requiredTables) {
+      const { error } = await supabase.from(table).select("count").limit(0)
+      if (error) {
+        tablesMissing.push(table)
+      } else {
+        tablesFound.push(table)
       }
-
-      return NextResponse.json({
-        success: false,
-        message: "Failed to connect to Supabase",
-        details: { error: connectionError.message },
-      })
     }
 
-    // Test 2: Check if required tables exist
-    const requiredTables = ["profiles", "workspaces", "agents", "workflows", "connectors"]
-    const tableChecks = await Promise.all(
-      requiredTables.map(async (table) => {
-        const { error } = await supabase.from(table).select("count").limit(0)
-        return { table, exists: !error }
-      }),
-    )
+    // Check connection validity
+    const connectionValid = tablesFound.length > 0
 
-    const missingTables = tableChecks.filter((check) => !check.exists)
-
-    if (missingTables.length > 0) {
-      return NextResponse.json({
-        success: false,
-        message: "Some tables are missing from the database",
-        details: {
-          missingTables: missingTables.map((t) => t.table),
-          hint: "Please run the complete SQL setup script from SUPABASE_SETUP.md",
-        },
-      })
+    // Check if auth is enabled
+    let authEnabled = false
+    try {
+      const { data } = await supabase.auth.getSession()
+      authEnabled = true
+    } catch {
+      authEnabled = false
     }
 
-    // Test 3: Check if connectors are seeded
-    const { data: connectors, error: connectorsError } = await supabase.from("connectors").select("count")
+    // Determine success
+    const success = tablesMissing.length === 0 && connectionValid
 
-    if (connectorsError) {
-      return NextResponse.json({
-        success: false,
-        message: "Tables exist but seed data is missing",
-        details: {
-          error: connectorsError.message,
-          hint: "Please run the complete SQL setup script including seed data",
-        },
-      })
-    }
-
-    // All checks passed!
     return NextResponse.json({
-      success: true,
-      message: "Connection successful! All tables and seed data are in place.",
+      success,
+      message: success
+        ? "All tables found! Database is fully configured."
+        : tablesMissing.length === requiredTables.length
+          ? "No tables found. Please run the SQL setup script."
+          : `${tablesMissing.length} table(s) missing. Please run the complete SQL setup script.`,
       details: {
-        url: supabaseUrl,
-        tablesFound: requiredTables.length,
-        connectorsCount: connectors?.length || 0,
+        tablesFound,
+        tablesMissing,
+        connectionValid,
+        authEnabled,
       },
     })
   } catch (error: any) {
     return NextResponse.json(
       {
         success: false,
-        message: "Unexpected error during connection test",
-        details: { error: error.message },
+        message: "Connection failed: " + error.message,
+        details: {
+          error: error.message,
+          hint: "Check your Supabase URL and API key",
+        },
       },
       { status: 500 },
     )
